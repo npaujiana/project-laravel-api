@@ -54,7 +54,7 @@ class ProductController extends Controller
             $div = [];
 
             if (!$result) {
-                ret urn response()->json([
+                return response()->json([
                     'status' => 'error',
                     'message' => 'internal server error',
                 ], 500);
