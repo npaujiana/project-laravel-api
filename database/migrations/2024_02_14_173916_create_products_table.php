@@ -17,9 +17,11 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->double('price', 10, 2)->nullable(false);
             $table->text('image')->nullable();
+            $table->integer('stock')->nullable(false);
             $table->unsignedBigInteger('user_id')->nullable(false);
-            $table->foreign('user_id')->references('id')->on('users');
             $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users');
         });
     }
 

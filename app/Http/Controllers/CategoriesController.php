@@ -25,7 +25,7 @@ class CategoriesController extends Controller
 
         $validated = $request->validate([
             'category' => 'required',
-            'description' => 'nullable',
+            'description' => 'required',
         ]);
 
         $isCreate = Category::create($validated);

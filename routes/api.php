@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Http\Request;
@@ -39,5 +40,11 @@ Route::middleware(['auth:api'])->group(
         Route::get('/categories/{id}', [CategoriesController::class, 'show'])->name('categories.show');
         Route::delete('/categories/{id}', [CategoriesController::class, 'destroy'])->name('categories.destroy');
         Route::put('/categories/{id}', [CategoriesController::class, 'update'])->name('categories.update');
+
+        Route::post('/carts', [CartController::class, 'store'])->name('carts.store');
+        Route::get('/carts', [CartController::class, 'index'])->name('carts.index');
+        Route::get('/carts/{id}', [CartController::class, 'show'])->name('carts.show');
+        Route::put('/carts/{id}', [CartController::class, 'update'])->name('carts.update');
+        Route::delete('/carts/{id}', [CartController::class, 'destroy'])->name('carts.destroy');
     }
 );

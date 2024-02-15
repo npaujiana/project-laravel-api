@@ -12,11 +12,10 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $data = Product::select('name', 'price', 'image')->get();
+        $data = Product::select('name', 'price', 'image', 'stock')->get();
 
         if (auth()->user()->role == 'seller') {
-
-            $data = Product::select('id', 'name', 'price', 'image', 'description', 'user_id')->where('user_id', auth()->user()->id)->orderBY('id')->get();
+            $data = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('user_id', auth()->user()->id)->orderBY('id')->get();
         }
 
         return response()->json([
@@ -39,7 +38,9 @@ class ProductController extends Controller
             'price' => 'required',
             'image' => 'nullable',
             'description' => 'nullable',
-            'category' => 'array|nullable',
+            'stock' => 'required',
+            'category' => 'array|required',
+            'category.*.id' => 'required',
         ]);
 
         $validated['user_id'] = auth()->user()->id;
@@ -50,9 +51,10 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             $result = Product::create($validated);
+            $div = [];
 
             if (!$result) {
-                return response()->json([
+                ret urn response()->json([
                     'status' => 'error',
                     'message' => 'internal server error',
                 ], 500);
@@ -60,14 +62,15 @@ class ProductController extends Controller
 
             foreach ($categories as $category) {
                 $dt = [
-                    'id_product' => $result->id,
-                    'id_category' => $category['id'],
+                    'product_id' => $result->id,
+                    'category_id' => $category['id'],
                 ];
 
-                ProductsCategories::create($dt);
+                $div[] = ProductsCategories::create($dt);
 
             };
 
+            $result->category = $div;
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -85,12 +88,12 @@ class ProductController extends Controller
     public function show(string $id)
     {
         // get product pertama yang ditemukan berdasarkan id
-        $product = Product::where('id', $id)->first();
+        $product = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('id', $id)->first();
 
         //kondisi jika user adalah seller
         if (auth()->user()->role == 'seller') {
             //timpa product dengan query khusus seller
-            $product = Product::where('id', $id)->where('user_id', auth()->user()->id)->first();
+            $product = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('id', $id)->where('user_id', auth()->user()->id)->first();
         }
 
         // validasi jika data tidak ditemukan
@@ -117,7 +120,11 @@ class ProductController extends Controller
             ], 403);
         }
 
-        $product = Product::where('id', $id)->where('user_id', auth()->user()->id)->first();
+        $product = Product::where('id', $id)->first();
+
+        if (auth()->user()->role == 'seller') {
+            $product = Product::where('id', $id)->where('user_id', auth()->user()->id)->first();
+        }
 
         if ($product == null) {
             return response()->json([
@@ -131,19 +138,64 @@ class ProductController extends Controller
             'price' => 'nullable',
             'image' => 'nullable',
             'description' => 'nullable',
+            'stock' => 'nullable',
+            'category' => 'nullable|array',
+            'category.*.id' => 'nullable',
         ]);
 
-        $result = $product->Update($validated);
+        if (!isset($validated['category'])) {
+            $result = $product->Update($validated);
 
-        if (!$result) {
+            if (!$result) {
+                return response()->json([
+                    'status' => 'Failed',
+                    'message' => 'internal server error',
+                ], 500);
+            }
+
             return response()->json([
-                'status' => 'Failed',
-                'message' => 'internal server error',
-            ], 500);
+                'status' => 'success',
+                'message' => 'Update Was Completed',
+            ], 200);
         }
+
+        $categories = $validated['category'];
+        unset($validated['category']);
+
+        DB::beginTransaction();
+        try {
+            $result = $product->Update($validated);
+
+            if (!$result) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'internal server error',
+                ], 500);
+            }
+
+            ProductsCategories::where('product_id', $id)->delete();
+
+            foreach ($categories as $category) {
+                $dt = [
+                    'product_id' => $id,
+                    'category_id' => $category['id'],
+                ];
+
+                ProductsCategories::where('product_id', $dt['product_id'])->create($dt);
+
+            };
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $th->getMessage(),
+            ], 500);
+        };
 
         return response()->json([
             'status' => 'success',
+            'message' => 'update was completed',
         ], 200);
 
     }
@@ -166,6 +218,7 @@ class ProductController extends Controller
             ], 404);
         }
 
+        DB::table('products_categories')->where('product_id', $id)->delete();
         $isDelete = $product->delete();
 
         if (!$isDelete) {
@@ -177,4 +230,62 @@ class ProductController extends Controller
 
         return response()->noContent();
     }
+
 }
+
+//     public function addToCart(Request $request, string $id)
+//     {
+//         if (auth()->user()->role == 'seller' || auth()->user()->role == 'admin') {
+//             return response()->json([
+//                 'status' => 'forbidden',
+//                 'message' => 'You dont have access ',
+//             ], 403);
+//         }
+
+//         $product = Product::find($id);
+
+//         if (!$product) {
+//             return response()->json([
+//                 'status' => 'not found',
+//                 'message' => 'Product Not Found',
+//             ], 404);
+//         }
+
+//         $cartId = CartsHeader::select('id')->where('user_id', auth()->user()->id)->first();
+
+//         $validated = $request->validate([
+//             'total_quantity' => 'required',
+//         ]);
+
+//         if ($validated > $product->stock) {
+//             return response()->json([
+//                 'status' => 'conflict',
+//                 'message' => 'the amount you requested exceeds the limit',
+//             ], 409);
+//         }
+
+//         $product->stock -= $validated['total_quantity'];
+//         $product->save();
+
+//         $cartValue = [
+//             'cart_id' => $cartId,
+//             'product_id' => $id,
+//             'total_price' => $product->price,
+//             'total_quantity' => $validated['total_quantity'],
+//         ];
+
+//         $result = CartsHeader::create($cartValue);
+
+//         if (!$result) {
+//             return response()->json([
+//                 'status' => 'error',
+//                 'message' => 'internal server error',
+//             ], 500);
+//         }
+
+//         return response()->json([
+//             'status' => 'success',
+//             'message' => 'Successfully added to cart',
+//         ], 200);
+//     }
+// }
