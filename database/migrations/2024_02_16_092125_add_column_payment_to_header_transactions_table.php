@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('carts_header', function (Blueprint $table) {
-            $table->float('total_price')->nullable(false);
+        Schema::table('header_transactions', function (Blueprint $table) {
+            $table->double('payment')->nullable();
         });
     }
 
@@ -21,7 +21,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('carts_header', function (Blueprint $table) {
+        Schema::table('header_transactions', function (Blueprint $table) {
             //
         });
     }

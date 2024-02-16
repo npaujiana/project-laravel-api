@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CartsDetail;
-use App\Models\CartsHeader;
+use App\Models\Cart;
+use App\Models\DetailTransaction;
+use App\Models\HeaderTransaction;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,11 +13,10 @@ class CartController extends Controller
 {
     public function index()
     {
-        $carts = DB::table('carts_detail')
-            ->join('carts_header', 'carts_header.id', '=', 'carts_detail.cart_id')
-            ->join('products', 'products.id', '=', 'carts_detail.product_id')
-            ->select('carts_detail.id', 'products.name', 'products.image', 'carts_detail.total_quantity', 'carts_detail.total_price')
-            ->where('carts_header.user_id', auth()->user()->id)
+        $carts = DB::table('carts')
+            ->join('products', 'products.id', '=', 'carts.product_id')
+            ->select('carts.id', 'products.name', 'products.image', 'carts.total_quantity', 'carts.total_price')
+            ->where('carts.user_id', auth()->user()->id)
             ->get();
 
         return response()->json([
@@ -48,24 +48,6 @@ class CartController extends Controller
             ], 404);
         }
 
-        $customer_cart_id = CartsHeader::select('id')->where('user_id', auth()->user()->id)->first();
-
-        if (empty($customer_cart_id)) {
-            return response()->json([
-                'status' => 'forbidden',
-                'message' => 'something wrong',
-            ], 403);
-        }
-
-        $cart_header = CartsHeader::where('id', $customer_cart_id['id'])->first();
-
-        if (empty($cart_header)) {
-            return response()->json([
-                'status' => 'not found',
-                'message' => 'cart not found',
-            ], 404);
-        }
-
         if ($validated['total_quantity'] > $product->stock) {
             return response()->json([
                 'status' => 'Bad Request',
@@ -74,27 +56,20 @@ class CartController extends Controller
         }
 
         $validated['total_price'] = $product->price * $validated['total_quantity'];
-        $validated['cart_id'] = $customer_cart_id['id'];
+        $validated['user_id'] = auth()->user()->id;
 
-        $product->stock -= $validated['total_quantity'];
-        $product->save();
+        // $product->stock -= $validated['total_quantity'];
+        // $product->save();
 
-        $checkProduct = CartsDetail::where('product_id', $validated['product_id'])->first();
+        $checkProduct = Cart::where('product_id', $validated['product_id'])->first();
 
         $result = false;
 
-        if (empty($checkProduct->product_id)) {
-            $cart_header->total_produk += 1;
-            $cart_header->total_price += $validated['total_price'];
-            $cart_header->total_quantity += $validated['total_quantity'];
-            $cart_header->save();
-            $result = CartsDetail::create($validated);
-
+        if (empty($checkProduct)) {
+            $result = Cart::create($validated);
         } else {
-            $cart_header->total_price += $validated['total_price'];
-            $cart_header->total_quantity += $validated['total_quantity'];
-            $validated['total_quantity'] += $checkProduct['total_quantity'];
-            $cart_header->save();
+            $validated['total_quantity'] += $checkProduct->total_quantity;
+            $validated['total_price'] = $product->price * $validated['total_quantity'];
             $result = $checkProduct->update($validated);
         }
 
@@ -114,12 +89,11 @@ class CartController extends Controller
 
     public function show(string $id)
     {
-        $carts = DB::table('carts_detail')
-            ->join('carts_header', 'carts_header.id', '=', 'carts_detail.cart_id')
-            ->join('products', 'products.id', '=', 'carts_detail.product_id')
-            ->select('cart_detail.id', 'products.name', 'products.image', 'carts_detail.total_quantity', 'carts_detail.total_price')
-            ->where('carts_header.user_id', auth()->user()->id)
-            ->where('carts_detail.id', $id)
+        $carts = DB::table('carts')
+            ->join('products', 'products.id', '=', 'carts.product_id')
+            ->select('carts.id', 'products.name', 'products.image', 'carts.total_quantity', 'carts.total_price')
+            ->where('carts.user_id', auth()->user()->id)
+            ->where('carts.id', $id)
             ->get();
 
         if (count($carts) == 0) {
@@ -141,7 +115,7 @@ class CartController extends Controller
             'total_quantity' => 'required',
         ]);
 
-        $cart = CartsDetail::find($id);
+        $cart = Cart::where('id', $id)->first();
 
         if (!$cart) {
             return response()->json([
@@ -150,7 +124,16 @@ class CartController extends Controller
             ], 404);
         }
 
-        $validated['total_price'] = $cart->total_price * $validated['total_quantity'];
+        $price_product = Product::where('id', $cart->product_id)->first();
+
+        if (!$price_product) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Product Undefined',
+            ], 500);
+        }
+
+        $validated['total_price'] = $price_product->price * $validated['total_quantity'];
 
         $result = $cart->update($validated);
 
@@ -169,7 +152,7 @@ class CartController extends Controller
 
     public function destroy(string $id)
     {
-        $cart = CartsDetail::find($id);
+        $cart = Cart::find($id);
 
         if (!$cart) {
             return response()->json([
@@ -188,5 +171,82 @@ class CartController extends Controller
         }
 
         return response()->noContent();
+    }
+    public function checkout(Request $request)
+    {
+        if (auth()->user()->role != 'customer') {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You do not have access to this page',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'cart' => 'required|array',
+            'cart.*.id' => 'required',
+        ]);
+
+        $isFind = true;
+
+        // melakukan finding data satu satu
+        foreach ($validated['cart'] as $cart) {
+            $cart = Cart::find($cart['id']);
+            if (!$cart) {
+                $isFind = false;
+            }
+
+        }
+
+        // memberikan pesan request ke user jika salah satu id cart tidak sesuai dengan tabel
+        if (!$isFind) {
+            return response()->json([
+                'status' => 'Bad Request',
+                'message' => 'Your input is wrong',
+            ], 400);
+        }
+
+        // membuat data header
+        $headerValue = [
+            'user_id' => auth()->user()->id,
+            'total_quantity' => 0,
+            'total_product' => 0,
+            'total_price' => 0,
+        ];
+
+        $headerCreate = HeaderTransaction::create($headerValue);
+
+        foreach ($validated['cart'] as $cart) {
+            $cart = Cart::find($cart['id']);
+
+            $headerValue['total_quantity'] += $cart['total_quantity'];
+            $headerValue['total_product'] += 1;
+            $headerValue['total_price'] += $cart['total_price'];
+
+            $headerUpdate = HeaderTransaction::where('id', $headerCreate['id'])->update($headerValue);
+
+            if (!$headerUpdate) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Internal Server Error',
+                ], 500);
+            }
+
+            $dataTransaksi = [
+                'hdr_trx_id' => $headerCreate->id,
+                'product_id' => $cart['product_id'],
+                'quantity' => $cart['total_quantity'],
+                'total_price' => $cart['total_price'],
+            ];
+
+            $detailCreate = DetailTransaction::create($dataTransaksi);
+
+            $cart->delete();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'checkout was succesfully',
+        ], 200);
+
     }
 }

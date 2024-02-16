@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CartsHeader;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +30,7 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'token' => $token,
+            'role' => auth()->user()->role,
         ], 200);
 
     }
@@ -50,19 +50,9 @@ class AuthController extends Controller
             'role' => 'customer',
         ];
 
-        $user = User::create($data);
-        
+        $result = User::create($data);
 
-        $cart = [
-            'user_id' => $user->id,
-            'total_produk' => 0,
-            'total_quantity' => 0,
-            'total_price' => 0,
-        ];
-
-        $carts = CartsHeader::create($cart);
-
-        if (!$user || !$carts) {
+        if (!$result) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'internal server error',
