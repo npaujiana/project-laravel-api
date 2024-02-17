@@ -186,23 +186,16 @@ class CartController extends Controller
             'cart.*.id' => 'required',
         ]);
 
-        $isFind = true;
-
         // melakukan finding data satu satu
         foreach ($validated['cart'] as $cart) {
             $cart = Cart::find($cart['id']);
             if (!$cart) {
-                $isFind = false;
+                return response()->json([
+                    'status' => 'Bad Request',
+                    'message' => 'Your input is wrong',
+                ], 400);
             }
 
-        }
-
-        // memberikan pesan request ke user jika salah satu id cart tidak sesuai dengan tabel
-        if (!$isFind) {
-            return response()->json([
-                'status' => 'Bad Request',
-                'message' => 'Your input is wrong',
-            ], 400);
         }
 
         // membuat data header
@@ -239,6 +232,13 @@ class CartController extends Controller
             ];
 
             $detailCreate = DetailTransaction::create($dataTransaksi);
+
+            if (!$detailCreate) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'internal server error',
+                ], 500);
+            }
 
             $cart->delete();
         }

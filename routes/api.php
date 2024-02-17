@@ -30,6 +30,7 @@ Route::post('/register', [AuthController::class, 'registrasi'])->name('register'
 Route::middleware(['auth:api'])->group(
     function () {
         Route::get('/products', [ProductController::class, 'index'])->name('product.index');
+        Route::post('/products/checkout', [ProductController::class, 'checkout'])->name('product.checkout');
         Route::get('/products/{id}', [ProductController::class, 'show'])->name('product.show');
 
         Route::get('/admin/products', [ProductAdminController::class, 'index'])->name('adminProduct.index');

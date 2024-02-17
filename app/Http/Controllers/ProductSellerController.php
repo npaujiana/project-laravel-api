@@ -178,7 +178,7 @@ class ProductSellerController extends Controller
             }
 
             ProductsCategories::where('product_id', $id)->delete();
-
+ 
             foreach ($categories as $category) {
                 $dt = [
                     'product_id' => $id,

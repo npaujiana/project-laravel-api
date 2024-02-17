@@ -22,7 +22,7 @@ class ProductFactory extends Factory
             'description' => $this->faker->text,
             'image' => $this->faker->imageUrl,
             'stock' => $this->faker->numberBetween(1, 10),
-            'user_id' => $this->faker->numberBetween(1, 2),
+            'user_id' => $this->faker->numberBetween(2, 2),
         ];
     }
 }

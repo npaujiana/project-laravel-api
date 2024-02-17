@@ -21,7 +21,7 @@ class ProductAdminController extends Controller
             ], 403);
         }
 
-        $data = Product::select('name', 'price', 'image', 'stock', 'user_id')->get();
+        $data = Product::select('id', 'name', 'price', 'image', 'stock', 'user_id')->orderBY('id', 'asc')->get();
 
         return response()->json([
             'status' => 'success',
@@ -100,6 +100,13 @@ class ProductAdminController extends Controller
 
         // get product pertama yang ditemukan berdasarkan id
         $product = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('id', $id)->first();
+
+        // $category = DB::table('products')
+        //     ->join('products_categories', 'products.id', '=', 'products_categories.product_id')
+        //     ->select('products.id', 'products.name', 'products.price', 'products.image', 'products.description', 'products.user_id', 'products.stock', 'products_categories.category_id')
+        //     ->where('products_categories.product_id', $id)
+        //     ->where('products.id', $id)
+        //     ->first();
 
         // validasi jika data tidak ditemukan
         if ($product == null) {
