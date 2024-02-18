@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\HeaderTransaction;
 use App\Models\Product;
 use App\Models\ProductsCategories;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +16,9 @@ class ProductAdminController extends Controller
      */
     public function index()
     {
+        $query = request()->query('search');
+        $fillter = request()->query('category');
+
         if (auth()->user()->role != 'admin') {
             return response()->json([
                 'status' => 'forbidden',
@@ -22,6 +27,22 @@ class ProductAdminController extends Controller
         }
 
         $data = Product::select('id', 'name', 'price', 'image', 'stock', 'user_id')->orderBY('id', 'asc')->get();
+
+        if ($query) {
+            $data = Product::select('id', 'name', 'price', 'image', 'stock', 'user_id')
+                ->where('name', 'ILIKE', '%' . $query . '%')
+                ->orderBY('id', 'asc')
+                ->get();
+        }
+
+        if ($fillter) {
+            $data = DB::table('products')
+                ->join('products_categories', 'products.id', '=', 'products_categories.product_id')
+                ->select('products.id', 'products.name', 'products.price', 'products.image', 'products.stock', 'products.user_id')
+                ->orderBY('id', 'asc')
+                ->where('products_categories.category_id', $fillter)
+                ->get();
+        }
 
         return response()->json([
             'status' => 'success',
@@ -98,17 +119,8 @@ class ProductAdminController extends Controller
             ], 403);
         }
 
-        // get product pertama yang ditemukan berdasarkan id
         $product = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('id', $id)->first();
 
-        // $category = DB::table('products')
-        //     ->join('products_categories', 'products.id', '=', 'products_categories.product_id')
-        //     ->select('products.id', 'products.name', 'products.price', 'products.image', 'products.description', 'products.user_id', 'products.stock', 'products_categories.category_id')
-        //     ->where('products_categories.product_id', $id)
-        //     ->where('products.id', $id)
-        //     ->first();
-
-        // validasi jika data tidak ditemukan
         if ($product == null) {
             return response()->json([
                 'status' => 'not found',
@@ -238,5 +250,52 @@ class ProductAdminController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    public function showUser()
+    {
+        if (auth()->user()->role != 'admin') {
+            return response()->json([
+                'status' => 'Forbidden',
+                'message' => 'not allowed',
+            ], 403);
+        }
+
+        $data = User::select('name', 'email', 'role')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+        ], 200);
+    }
+
+    public function history()
+    {
+        if (auth()->user()->role != 'admin') {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You do not have access to this page',
+            ], 403);
+        }
+
+        $query = request()->query('id');
+
+        $history = HeaderTransaction::select('id', 'created_at', 'total_product', 'total_quantity', 'total_price')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($query) {
+            $history = DB::table('detail_transactions')
+                ->join('header_transactions', 'detail_transactions.hdr_trx_id', '=', 'header_transactions.id')
+                ->select('detail_transactions.product_id', 'detail_transactions.quantity', 'detail_transactions.total_price')
+                ->where('detail_transactions.hdr_trx_id', $query)->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'history' => $history,
+        ], 200);
     }
 }

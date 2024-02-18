@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ProductAdminController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductSellerController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,21 +32,26 @@ Route::middleware(['auth:api'])->group(
     function () {
         Route::get('/products', [ProductController::class, 'index'])->name('product.index');
         Route::post('/products/checkout', [ProductController::class, 'checkout'])->name('product.checkout');
+        Route::get('/products/history', [ProductController::class, 'history'])->name('history');
         Route::get('/products/{id}', [ProductController::class, 'show'])->name('product.show');
 
         Route::get('/admin/products', [ProductAdminController::class, 'index'])->name('adminProduct.index');
-        Route::get('/admin/products/{id}', [ProductAdminController::class, 'show'])->name('adminProduct.show');
         Route::post('/admin/products', [ProductAdminController::class, 'store'])->name('adminProduct.store');
+        Route::get('/admin/products/history', [ProductAdminController::class, 'history'])->name('adminProduct.history');
+        Route::get('/admin/products/{id}', [ProductAdminController::class, 'show'])->name('adminProduct.show');
         Route::put('/admin/products/{id}', [ProductAdminController::class, 'update'])->name('adminProduct.update');
         Route::delete('/admin/products/{id}', [ProductAdminController::class, 'destroy'])->name('adminProduct.destroy');
 
+        Route::get('/admin/users', [UserController::class, 'index'])->name('adminUser.index');
+        Route::post('/admin/users', [UserController::class, 'store'])->name('adminUser.store');
+        Route::get('/admin/users/{id}', [UserController::class, 'show'])->name('adminUser.show');
+
         Route::get('/seller/products', [ProductSellerController::class, 'index'])->name('sellerProduct.index');
-        Route::get('/seller/products/{id}', [ProductSellerController::class, 'show'])->name('sellerProduct.show');
         Route::post('/seller/products', [ProductSellerController::class, 'store'])->name('sellerProduct.store');
+        Route::get('/seller/products/history', [ProductSellerController::class, 'history'])->name('sellerProduct.history');
+        Route::get('/seller/products/{id}', [ProductSellerController::class, 'show'])->name('sellerProduct.show');
         Route::put('/seller/products/{id}', [ProductSellerController::class, 'update'])->name('sellerProduct.update');
         Route::delete('/seller/products/{id}', [ProductSellerController::class, 'destroy'])->name('sellerProduct.destroy');
-
-        Route::post('/add/owner', [AuthController::class, 'addSeller'])->name('user.addSeller');
 
         Route::get('/categories', [CategoriesController::class, 'index'])->name('categories.index');
         Route::post('/categories', [CategoriesController::class, 'store'])->name('categories.store');

@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 class ProductSellerController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
+        $query = request()->query('search');
+        $fillter = request()->query('category');
+
         if (auth()->user()->role != 'seller') {
             return response()->json([
                 'status' => 'forbidden',
@@ -21,7 +21,25 @@ class ProductSellerController extends Controller
             ], 403);
         }
 
-        $data = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('user_id', auth()->user()->id)->orderBY('id')->get();
+        $data = Product::select('id', 'name', 'price', 'image', 'description', 'user_id', 'stock')->where('user_id', auth()->user()->id)->orderBY('id', 'asc')->get();
+
+        if ($query) {
+            $data = Product::select('name', 'price', 'image', 'stock')
+                ->where('name', 'ILIKE', '%' . $query . '%')
+                ->where('user_id', auth()->user()->id)
+                ->orderBY('id', 'asc')
+                ->get();
+        }
+
+        if ($fillter) {
+            $data = DB::table('products')
+                ->join('products_categories', 'products.id', '=', 'products_categories.product_id')
+                ->select('products.id', 'products.name', 'products.price', 'products.image', 'products.stock')
+                ->orderBY('id', 'asc')
+                ->where('user_id', auth()->user()->id)
+                ->where('products_categories.category_id', $fillter)
+                ->get();
+        }
 
         return response()->json([
             'status' => 'success',
@@ -178,7 +196,7 @@ class ProductSellerController extends Controller
             }
 
             ProductsCategories::where('product_id', $id)->delete();
- 
+
             foreach ($categories as $category) {
                 $dt = [
                     'product_id' => $id,
@@ -234,5 +252,37 @@ class ProductSellerController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    public function history()
+    {
+        if (auth()->user()->role != 'seller') {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You do not have access to this page',
+            ], 403);
+        }
+
+        $query = request()->query('id');
+
+        $history = DB::table('detail_transactions')
+            ->join('header_transactions', 'detail_transactions.hdr_trx_id', '=', 'header_transactions.id')
+            ->join('products', 'detail_transactions.product_id', '=', 'products.id')
+            ->select('detail_transactions.product_id', 'detail_transactions.quantity', 'detail_transactions.total_price', 'header_transactions.user_id')
+            ->where('products.user_id', auth()->user()->id)
+            ->get();
+
+        if ($query) {
+            $history = DB::table('detail_transactions')
+                ->join('header_transactions', 'detail_transactions.hdr_trx_id', '=', 'header_transactions.id')
+                ->select('detail_transactions.product_id', 'detail_transactions.quantity', 'detail_transactions.total_price')
+                ->where('header_transactions.user_id', auth()->user()->id)
+                ->where('detail_transactions.hdr_trx_id', $query)->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'history' => $history,
+        ], 200);
     }
 }

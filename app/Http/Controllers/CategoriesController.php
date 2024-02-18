@@ -9,9 +9,20 @@ class CategoriesController extends Controller
 {
     public function index()
     {
+        $query = request()->query('search');
+
         $categories = Category::select('id', 'category', 'description')->get();
 
-        return response()->json($categories);
+        if ($query) {
+            $categories = Category::select('id', 'category', 'description')
+                ->where('category', 'ILIKE', '%' . $query . '%')
+                ->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'categories' => $categories,
+        ], 200);
     }
 
     public function store(Request $request)

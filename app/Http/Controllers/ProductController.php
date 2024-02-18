@@ -25,7 +25,7 @@ class ProductController extends Controller
 
         $data = Product::select('id', 'name', 'price', 'image', 'stock')->get();
         if ($query) {
-            $data = Product::select('name', 'price', 'image', 'stock')
+            $data = Product::select('id', 'name', 'price', 'image', 'stock')
                 ->where('name', 'ILIKE', '%' . $query . '%')
                 ->get();
         }
@@ -33,6 +33,7 @@ class ProductController extends Controller
         if ($fillter) {
             $data = DB::table('products')
                 ->join('products_categories', 'products.id', '=', 'products_categories.product_id')
+                ->select('products.id', 'products.name', 'products.price', 'products.image', 'products.stock')
                 ->where('products_categories.category_id', $fillter)
                 ->get();
         }
@@ -142,6 +143,36 @@ class ProductController extends Controller
             'message' => 'checkout successfully',
         ], 200);
 
+    }
+
+    public function history()
+    {
+        if (auth()->user()->role != 'customer') {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You do not have access to this page',
+            ], 403);
+        }
+
+        $query = request()->query('id');
+
+        $history = HeaderTransaction::select('id', 'created_at', 'total_product', 'total_quantity', 'total_price')
+            ->where('user_id', auth()->user()->id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($query) {
+            $history = DB::table('detail_transactions')
+                ->join('header_transactions', 'detail_transactions.hdr_trx_id', '=', 'header_transactions.id')
+                ->select('detail_transactions.product_id', 'detail_transactions.quantity', 'detail_transactions.total_price')
+                ->where('header_transactions.user_id', auth()->user()->id)
+                ->where('detail_transactions.hdr_trx_id', $query)->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'history' => $history,
+        ], 200);
     }
 
 }

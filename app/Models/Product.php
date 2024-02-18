@@ -11,4 +11,9 @@ class Product extends Model
 
     protected $table = 'products';
     protected $guarded = [];
+
+    public function productsCategories()
+    {
+        return $this->hasMany(ProductsCategories::class);
+    }
 }

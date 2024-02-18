@@ -74,42 +74,5 @@ class AuthController extends Controller
 
     }
 
-    public function addSeller(Request $request)
-    {
-
-        if (auth()->user()->role == 'customer' || auth()->user()->role == 'seller') {
-            return response()->json([
-                'status' => 'Unauthorized',
-                'message' => 'not allowed',
-            ], 401);
-        }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-        ]);
-
-        $data = [
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => 'seller',
-        ];
-
-        $user = User::create($data);
-
-        if (!$user) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'internal server error',
-            ], 500);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'add seller was completed',
-        ], 201);
-
-    }
+    
 }
